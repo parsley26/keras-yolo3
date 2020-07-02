@@ -2,6 +2,8 @@
 Retrain the YOLO model for your own dataset.
 """
 
+import argparse
+import datetime
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
@@ -14,15 +16,25 @@ from yolo3.utils import get_random_data
 
 
 def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
+    parser = argparse.ArgumentParser(description='yolo trainning')
+    parser.add_argument('ANNOTATION_PATH', help='アノテーションファイル')
+    parser.add_argument('--SHAPE_SIZE', type=int, default=320, help='学習画像サイズ ※32の倍数')
+    parser.add_argument('--BATCH_SIZE', type=int, default=8, help='バッチサイズ')
+    parser.add_argument('--EA_PATIENCE', type=int, default=10, help='EarlyStopping patience')
+
+    args = parser.parse_args()
+
+    annotation_path = args.ANNOTATION_PATH
+
+    now = datetime.datetime.now()
+    log_dir = 'logs/' + now.strftime('%Y%m%d_%H%M%S') + '/'
+    classes_path = 'model_data/my_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
 
-    input_shape = (416,416) # multiple of 32, hw
+    input_shape = (args.SHAPE_SIZE, args.SHAPE_SIZE)
 
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
@@ -36,7 +48,7 @@ def _main():
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=args.EA_PATIENCE, verbose=1)
 
     val_split = 0.1
     with open(annotation_path) as f:
@@ -54,7 +66,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 32
+        batch_size = args.BATCH_SIZE
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -73,7 +85,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size = 32 # note that more GPU memory is required after unfreezing the body
+        batch_size = args.BATCH_SIZE # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
