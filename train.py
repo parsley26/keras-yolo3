@@ -26,8 +26,9 @@ def _main():
 
     annotation_path = args.ANNOTATION_PATH
 
-    now = datetime.datetime.now()
-    log_dir = 'logs/' + now.strftime('%Y%m%d_%H%M%S') + '/'
+    now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    print(now)
+    log_dir = 'logs/' + now + '/'
     classes_path = 'model_data/my_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
