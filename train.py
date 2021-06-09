@@ -4,6 +4,8 @@ Retrain the YOLO model for your own dataset.
 
 import argparse
 import datetime
+import os
+import shutil
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
@@ -98,7 +100,7 @@ def _main():
         model.save_weights(log_dir + 'trained_weights_final.h5')
 
     # Further training if needed.
-
+    return log_dir + 'trained_weights_final.h5'
 
 def get_classes(classes_path):
     '''loads the classes'''
@@ -200,4 +202,6 @@ def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, n
     return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
 
 if __name__ == '__main__':
-    _main()
+    model_path = _main()
+    if os.path.exists(model_path):
+        shutil.copyfile(model_path, "logs/latest.h5")
